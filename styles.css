@@ -38,6 +38,10 @@
 
 * { box-sizing: border-box; }
 
+/* Garante que o atributo [hidden] realmente oculte, mesmo em elementos com
+   display: flex/grid definido por classe (senão o display da classe vence). */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -316,6 +320,39 @@ textarea { resize: vertical; }
 .link-danger:hover { background: rgba(180,67,58,.1); }
 
 .empty { color: var(--ink-soft); text-align: center; padding: 32px; font-size: .95rem; }
+
+/* ---------- Diário: tabela de registro ---------- */
+.log-block { margin-top: 20px; }
+.log-block-head { font-size: .85rem; font-weight: 600; color: var(--ink-soft); margin-bottom: 8px; }
+.log-table-wrap { overflow-x: auto; }
+.log-table { width: 100%; border-collapse: collapse; }
+.log-table thead th {
+  text-align: left;
+  font-size: .74rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding: 2px 6px 6px;
+  white-space: nowrap;
+}
+.log-table td { padding: 3px 4px; vertical-align: middle; }
+.log-table input { padding: 8px 9px; }
+.log-table .col-nome { min-width: 160px; }
+.log-table .col-num { width: 76px; }
+.log-table .col-num input { text-align: center; }
+.log-table .row-del {
+  background: none; border: none; color: var(--ink-soft);
+  cursor: pointer; font-size: 1.25rem; line-height: 1;
+  padding: 2px 9px; border-radius: 8px;
+}
+.log-table .row-del:hover { color: var(--danger); background: rgba(180,67,58,.1); }
+#addExBtn { margin-top: 10px; }
+.log-aero-fields { margin-top: 12px; }
+
+/* Tabela (somente leitura) dentro de cada registro salvo */
+.record-table { width: 100%; border-collapse: collapse; font-size: .86rem; margin: 8px 0 4px; }
+.record-table th, .record-table td { border-bottom: 1px solid var(--line); padding: 5px 8px; text-align: left; }
+.record-table th { color: var(--ink-soft); font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; }
+.record-table td:not(:first-child), .record-table th:not(:first-child) { text-align: center; white-space: nowrap; }
 
 /* ---------- References ---------- */
 .refs { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); }

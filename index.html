@@ -172,29 +172,92 @@
       </div>
       <p class="panel-intro">Registre cada sessão realizada. O Dr. Força usa esses registros para <strong>ciclar exercícios e estímulos</strong> e aplicar sobrecarga progressiva no próximo plano.</p>
 
-      <form id="logForm" class="card form-grid">
+      <form id="logForm" class="card">
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">Data</span>
+            <input type="date" id="logData" />
+          </label>
+          <label class="field">
+            <span class="field-label">Treino / Dia</span>
+            <input type="text" id="logTreino" placeholder="Ex.: Treino A — Peito e Tríceps" />
+          </label>
+          <label class="field field-wide" id="fromPlanWrap" hidden>
+            <span class="field-label">⚡ Preencher a partir do último plano salvo</span>
+            <select id="logFromPlan">
+              <option value="">— escolher um dia do plano —</option>
+            </select>
+            <span class="field-hint">Ao escolher um dia, a tabela é preenchida com os exercícios e as metas de séries/reps. Você só ajusta a carga.</span>
+          </label>
+        </div>
+
+        <div class="log-block">
+          <div class="log-block-head">Exercícios realizados</div>
+          <div class="log-table-wrap">
+            <table class="log-table">
+              <thead>
+                <tr>
+                  <th class="col-nome">Exercício</th>
+                  <th class="col-num">Séries</th>
+                  <th class="col-num">Reps</th>
+                  <th class="col-num">Carga (kg)</th>
+                  <th class="col-num">RIR</th>
+                  <th aria-label="remover"></th>
+                </tr>
+              </thead>
+              <tbody id="logExRows"></tbody>
+            </table>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="addExBtn">+ Adicionar exercício</button>
+        </div>
+
+        <div class="log-block">
+          <label class="checkbox-field">
+            <input type="checkbox" id="logAeroFez" />
+            <span>Fiz sessão de aeróbico</span>
+          </label>
+          <div class="form-grid log-aero-fields" id="logAeroFields" hidden>
+            <label class="field">
+              <span class="field-label">Tipo</span>
+              <select id="logAeroTipo">
+                <option>Esteira / corrida</option>
+                <option>Caminhada</option>
+                <option>Bicicleta</option>
+                <option>Elíptico</option>
+                <option>Remo</option>
+                <option>Escada / stair</option>
+                <option>Outro</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Duração (min)</span>
+              <input type="number" id="logAeroDur" min="1" max="240" placeholder="30" />
+            </label>
+            <label class="field">
+              <span class="field-label">Intensidade</span>
+              <select id="logAeroInt">
+                <option>leve</option>
+                <option selected>moderada</option>
+                <option>intensa</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">RPE geral da sessão (1–10)</span>
+            <input type="number" id="logRpe" min="1" max="10" step="0.5" placeholder="7" />
+          </label>
+        </div>
         <label class="field">
-          <span class="field-label">Data</span>
-          <input type="date" id="logData" />
-        </label>
-        <label class="field">
-          <span class="field-label">Treino / Dia</span>
-          <input type="text" id="logTreino" placeholder="Ex.: Treino A — Peito e Tríceps" />
-        </label>
-        <label class="field field-wide">
-          <span class="field-label">Exercícios realizados (um por linha: exercício — séries x reps x carga — RIR/obs)</span>
-          <textarea id="logExercicios" rows="5" placeholder="Supino máquina — 3x10x40kg — 2 RIR&#10;Crucifixo cabo — 3x12x15kg — 1 RIR&#10;Tríceps corda — 3x15x25kg"></textarea>
-        </label>
-        <label class="field">
-          <span class="field-label">RPE geral da sessão (1–10)</span>
-          <input type="number" id="logRpe" min="1" max="10" step="0.5" placeholder="7" />
-        </label>
-        <label class="field field-wide">
           <span class="field-label">Observações (dor, energia, sono...)</span>
           <textarea id="logObs" rows="2" placeholder="Ombro sem dor hoje; energia boa; dormi 7h."></textarea>
         </label>
-        <div class="form-actions field-wide">
+
+        <div class="form-actions">
           <button type="submit" class="btn btn-primary">Registrar sessão</button>
+          <button type="button" class="btn btn-ghost" id="logClearBtn">Limpar</button>
         </div>
       </form>
 

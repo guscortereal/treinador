@@ -60,14 +60,15 @@ document.querySelectorAll(".tab").forEach((tab) => {
     tab.classList.add("is-active");
     document.querySelector(`.panel[data-panel="${tab.dataset.tab}"]`).classList.add("is-active");
     if (tab.dataset.tab === "historico") renderPlans();
-    if (tab.dataset.tab === "diario") renderLogs();
+    if (tab.dataset.tab === "diario") { refreshFromPlan(); renderLogs(); }
   });
 });
 
 // ---------------------------------------------------------------------------
 //  Renderizador Markdown mínimo (títulos, listas, tabelas GFM, negrito, etc.)
 // ---------------------------------------------------------------------------
-const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const escAttr = (s) => esc(s).replace(/"/g, "&quot;");
 function inline(s) {
   s = esc(s);
   s = s.replace(/`([^`]+)`/g, (_, c) => `<code>${c}</code>`);
@@ -180,7 +181,14 @@ function buildUserMessage() {
       parts.push("\n## Diário de treino recente (use para ciclar exercícios/estímulos e progredir a carga)");
       for (const l of logs) {
         parts.push(`### ${l.data || "s/data"} — ${l.treino || "sessão"}${l.rpe ? ` (RPE ${l.rpe})` : ""}`);
-        if (l.exercicios) parts.push(l.exercicios);
+        if (Array.isArray(l.exercicios)) {
+          for (const e of l.exercicios)
+            parts.push(`- ${e.nome}: ${e.series || "?"}x${e.reps || "?"}${e.carga ? ` x ${e.carga}kg` : ""}${e.rir ? ` (RIR ${e.rir})` : ""}`);
+        } else if (typeof l.exercicios === "string" && l.exercicios) {
+          parts.push(l.exercicios);
+        }
+        if (l.aerobico?.fez)
+          parts.push(`- Aeróbico: ${[l.aerobico.tipo, l.aerobico.duracao && l.aerobico.duracao + " min", l.aerobico.intensidade].filter(Boolean).join(", ")}`);
         if (l.obs) parts.push(`Obs.: ${l.obs}`);
       }
     }
@@ -383,27 +391,142 @@ $("exportPlansBtn").addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------------------
-//  Diário de treino
+//  Diário de treino — tabela clicável
 // ---------------------------------------------------------------------------
+
+// Extrai os dias de treino (título + exercícios com metas de séries/reps) do
+// texto Markdown de um plano salvo, para preencher a tabela automaticamente.
+function parsePlanDays(text) {
+  const lines = String(text || "").replace(/\r/g, "").split("\n");
+  const days = [];
+  for (let i = 0; i < lines.length; i++) {
+    const h = lines[i].match(/^##\s+(.*)$/);
+    if (!h) continue;
+    // procura a próxima tabela antes do próximo título
+    let j = i + 1;
+    while (j < lines.length && !/\|/.test(lines[j]) && !/^#{1,6}\s/.test(lines[j])) j++;
+    if (j >= lines.length || /^#{1,6}\s/.test(lines[j])) continue;
+    if (!(j + 1 < lines.length && /^\s*\|?[\s:|-]+\|/.test(lines[j + 1]) && /-/.test(lines[j + 1]))) continue;
+    const header = cells(lines[j]).map((c) => c.toLowerCase());
+    const idxNome = header.findIndex((c) => c.includes("exerc"));
+    if (idxNome < 0) continue; // ignora tabelas que não são de exercícios
+    const idxSer = header.findIndex((c) => c.includes("sér") || c.includes("ser"));
+    const idxRep = header.findIndex((c) => c.includes("rep"));
+    const exs = [];
+    let k = j + 2;
+    while (k < lines.length && /\|/.test(lines[k]) && lines[k].trim() !== "") {
+      const c = cells(lines[k]);
+      const nome = (c[idxNome] || "").replace(/\*\*/g, "").trim();
+      if (nome) exs.push({ nome, series: (idxSer >= 0 ? c[idxSer] : "") || "", reps: (idxRep >= 0 ? c[idxRep] : "") || "" });
+      k++;
+    }
+    if (exs.length) days.push({ titulo: h[1].replace(/\*\*/g, "").trim(), exercicios: exs });
+  }
+  return days;
+}
+
+function addExRow(ex = {}) {
+  const tr = document.createElement("tr");
+  tr.innerHTML =
+    `<td class="col-nome"><input type="text" value="${escAttr(ex.nome)}" placeholder="Exercício" /></td>` +
+    `<td class="col-num"><input type="text" value="${escAttr(ex.series)}" placeholder="3" /></td>` +
+    `<td class="col-num"><input type="text" value="${escAttr(ex.reps)}" placeholder="10" /></td>` +
+    `<td class="col-num"><input type="text" value="${escAttr(ex.carga)}" placeholder="—" inputmode="decimal" /></td>` +
+    `<td class="col-num"><input type="text" value="${escAttr(ex.rir)}" placeholder="2" /></td>` +
+    `<td><button type="button" class="row-del" title="Remover">×</button></td>`;
+  tr.querySelector(".row-del").addEventListener("click", () => tr.remove());
+  $("logExRows").appendChild(tr);
+}
+
+function seedRows(n = 3) {
+  $("logExRows").innerHTML = "";
+  for (let i = 0; i < n; i++) addExRow();
+}
+
+function resetLogForm() {
+  $("logTreino").value = "";
+  $("logRpe").value = "";
+  $("logObs").value = "";
+  $("logFromPlan").value = "";
+  $("logAeroFez").checked = false;
+  $("logAeroFields").hidden = true;
+  $("logAeroDur").value = "";
+  $("logData").value = today();
+  seedRows();
+}
+
+// Preenche o seletor "a partir do plano" com os dias do último plano salvo
+function refreshFromPlan() {
+  const plans = LS.get("plans", []);
+  const wrap = $("fromPlanWrap");
+  const sel = $("logFromPlan");
+  const days = plans.length ? parsePlanDays(plans[0].text) : [];
+  if (!days.length) { wrap.hidden = true; sel._days = []; return; }
+  wrap.hidden = false;
+  sel.innerHTML = `<option value="">— escolher um dia do plano —</option>` +
+    days.map((d, i) => `<option value="${i}">${esc(d.titulo)}</option>`).join("");
+  sel._days = days;
+}
+
+$("logFromPlan").addEventListener("change", (e) => {
+  const day = (e.target._days || [])[e.target.value];
+  if (!day) return;
+  $("logTreino").value = day.titulo;
+  $("logExRows").innerHTML = "";
+  day.exercicios.forEach((ex) => addExRow(ex));
+});
+
+$("addExBtn").addEventListener("click", () => addExRow());
+$("logClearBtn").addEventListener("click", resetLogForm);
+$("logAeroFez").addEventListener("change", () => {
+  $("logAeroFields").hidden = !$("logAeroFez").checked;
+});
+
 $("logForm").addEventListener("submit", (e) => {
   e.preventDefault();
+  const exercicios = [...$("logExRows").querySelectorAll("tr")].map((tr) => {
+    const inp = tr.querySelectorAll("input");
+    return { nome: inp[0].value.trim(), series: inp[1].value.trim(), reps: inp[2].value.trim(), carga: inp[3].value.trim(), rir: inp[4].value.trim() };
+  }).filter((x) => x.nome);
+
+  const aeroFez = $("logAeroFez").checked;
+  const aerobico = aeroFez
+    ? { fez: true, tipo: $("logAeroTipo").value, duracao: $("logAeroDur").value.trim(), intensidade: $("logAeroInt").value }
+    : null;
+
+  if (!exercicios.length && !aeroFez && !$("logTreino").value.trim()) {
+    alert("Adicione ao menos um exercício, um aeróbico ou o nome do treino.");
+    return;
+  }
+
   const rec = {
     id: Date.now(),
     data: $("logData").value,
     treino: $("logTreino").value.trim(),
-    exercicios: $("logExercicios").value.trim(),
+    exercicios,
+    aerobico,
     rpe: $("logRpe").value,
     obs: $("logObs").value.trim(),
   };
-  if (!rec.exercicios && !rec.treino) return;
   const logs = LS.get("logs", []);
   logs.unshift(rec);
   logs.sort((a, b) => (b.data || "").localeCompare(a.data || "") || b.id - a.id);
   LS.set("logs", logs);
-  e.target.reset();
-  $("logData").value = today();
+  resetLogForm();
   renderLogs();
 });
+
+function exTableHTML(exs) {
+  if (!Array.isArray(exs) || !exs.length) return "";
+  return `<table class="record-table"><thead><tr><th>Exercício</th><th>Séries</th><th>Reps</th><th>Carga</th><th>RIR</th></tr></thead><tbody>` +
+    exs.map((e) => `<tr><td>${esc(e.nome)}</td><td>${esc(e.series || "—")}</td><td>${esc(e.reps || "—")}</td><td>${e.carga ? esc(e.carga) + " kg" : "—"}</td><td>${esc(e.rir || "—")}</td></tr>`).join("") +
+    `</tbody></table>`;
+}
+function aeroLineHTML(a) {
+  if (!a || !a.fez) return "";
+  const bits = [a.tipo, a.duracao ? a.duracao + " min" : "", a.intensidade].filter(Boolean).join(" · ");
+  return `<div class="record-meta">🏃 Aeróbico: ${esc(bits)}</div>`;
+}
 
 function renderLogs() {
   const logs = LS.get("logs", []);
@@ -411,6 +534,7 @@ function renderLogs() {
   $("logsEmpty").hidden = logs.length > 0;
   list.innerHTML = "";
   for (const l of logs) {
+    const legacy = typeof l.exercicios === "string" ? l.exercicios : "";
     const el = document.createElement("div");
     el.className = "record";
     el.innerHTML = `
@@ -418,7 +542,9 @@ function renderLogs() {
         <span class="record-title">${esc(l.treino || "Sessão")}</span>
         <span class="record-date">${l.data ? new Date(l.data + "T00:00").toLocaleDateString("pt-BR") : ""}${l.rpe ? " · RPE " + esc(l.rpe) : ""}</span>
       </div>
-      ${l.exercicios ? `<div class="record-body">${esc(l.exercicios)}</div>` : ""}
+      ${exTableHTML(l.exercicios)}
+      ${legacy ? `<div class="record-body">${esc(legacy)}</div>` : ""}
+      ${aeroLineHTML(l.aerobico)}
       ${l.obs ? `<div class="record-meta" style="margin-top:8px">📝 ${esc(l.obs)}</div>` : ""}
       <div class="record-actions"><button class="link-danger" data-del="${l.id}">Excluir</button></div>`;
     list.appendChild(el);
@@ -427,11 +553,20 @@ function renderLogs() {
     LS.set("logs", LS.get("logs", []).filter((x) => x.id != b.dataset.del)); renderLogs();
   }));
 }
+
 $("exportLogsBtn").addEventListener("click", () => {
   const logs = LS.get("logs", []);
   const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
-  const rows = [["data", "treino", "exercicios", "rpe", "observacoes"].join(",")];
-  for (const l of logs) rows.push([q(l.data), q(l.treino), q(l.exercicios), q(l.rpe), q(l.obs)].join(","));
+  const rows = [["data", "treino", "exercicio", "series", "reps", "carga_kg", "rir", "rpe_sessao", "aerobico", "observacoes"].join(",")];
+  for (const l of logs) {
+    const aero = l.aerobico?.fez ? [l.aerobico.tipo, l.aerobico.duracao && l.aerobico.duracao + "min", l.aerobico.intensidade].filter(Boolean).join(" ") : "";
+    const exs = Array.isArray(l.exercicios) ? l.exercicios : [];
+    if (exs.length) {
+      for (const e of exs) rows.push([q(l.data), q(l.treino), q(e.nome), q(e.series), q(e.reps), q(e.carga), q(e.rir), q(l.rpe), q(aero), q(l.obs)].join(","));
+    } else {
+      rows.push([q(l.data), q(l.treino), q(typeof l.exercicios === "string" ? l.exercicios : ""), "", "", "", "", q(l.rpe), q(aero), q(l.obs)].join(","));
+    }
+  }
   download("diario-treino.csv", "﻿" + rows.join("\n"), "text/csv");
 });
 
@@ -456,3 +591,5 @@ function today() {
 // ---------------------------------------------------------------------------
 loadSettings();
 $("logData").value = today();
+seedRows();
+refreshFromPlan();
