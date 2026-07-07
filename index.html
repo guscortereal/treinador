@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Treinador Virtual — Dr. Força</title>
+  <meta name="description" content="Gerador de treinos de musculação baseado em evidências para homens 50+, com foco em hipertrofia máxima e segurança articular." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>" />
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <div class="masthead-mark">Dr. Força</div>
+      <h1>Treinador Virtual</h1>
+      <p class="masthead-sub">Musculação baseada em evidências para hipertrofia máxima — homens 50+, com segurança articular.</p>
+    </header>
+
+    <!-- ================= CONFIGURAÇÃO ================= -->
+    <details class="settings" id="settings">
+      <summary>
+        <span class="settings-title">⚙️ Configuração</span>
+        <span class="settings-status" id="settingsStatus">chave da API não configurada</span>
+      </summary>
+      <div class="settings-body">
+        <label class="field">
+          <span class="field-label">Chave da API Anthropic</span>
+          <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
+          <span class="field-hint">Guardada apenas neste navegador (localStorage). Nunca é enviada a nenhum servidor além da própria API da Anthropic. Uso pessoal — não compartilhe esta página com a chave salva.</span>
+        </label>
+        <div class="settings-row">
+          <label class="field">
+            <span class="field-label">Modelo</span>
+            <select id="model">
+              <option value="claude-opus-4-8">Claude Opus 4.8 (recomendado)</option>
+              <option value="claude-sonnet-5">Claude Sonnet 5 (mais rápido/barato)</option>
+              <option value="claude-haiku-4-5">Claude Haiku 4.5 (econômico)</option>
+            </select>
+          </label>
+          <label class="field checkbox-field">
+            <input type="checkbox" id="useSearch" checked />
+            <span>Consultar PubMed/OpenEvidence (busca web)</span>
+          </label>
+          <label class="field checkbox-field">
+            <input type="checkbox" id="showThinking" checked />
+            <span>Mostrar raciocínio do Dr. Força</span>
+          </label>
+        </div>
+      </div>
+    </details>
+
+    <!-- ================= ABAS ================= -->
+    <nav class="tabs" role="tablist">
+      <button class="tab is-active" data-tab="gerar" role="tab">Gerar treino</button>
+      <button class="tab" data-tab="historico" role="tab">Histórico de planos</button>
+      <button class="tab" data-tab="diario" role="tab">Diário de treino</button>
+    </nav>
+
+    <!-- ---------- ABA: GERAR ---------- -->
+    <section class="panel is-active" data-panel="gerar">
+      <form id="genForm" class="card form-grid">
+        <label class="field">
+          <span class="field-label">Idade</span>
+          <input type="number" id="idade" min="40" max="90" value="50" />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Dias por semana</span>
+          <select id="dias">
+            <option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Tempo por sessão</span>
+          <select id="tempo">
+            <option value="30–40 min">30–40 min</option>
+            <option value="45–60 min" selected>45–60 min</option>
+            <option value="60–75 min">60–75 min</option>
+            <option value="75–90 min">75–90 min</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Experiência</span>
+          <select id="experiencia">
+            <option value="iniciante">Iniciante (&lt; 1 ano)</option>
+            <option value="intermediário" selected>Intermediário (1–3 anos)</option>
+            <option value="avançado">Avançado (&gt; 3 anos)</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Intensidade desejada</span>
+          <select id="intensidade">
+            <option value="leve">Leve — poupar articulações (2–3 RIR)</option>
+            <option value="moderada" selected>Moderada — equilíbrio (1–3 RIR)</option>
+            <option value="alta">Alta — perto da falha (0–2 RIR)</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Equipamento disponível</span>
+          <select id="equipamento">
+            <option value="academia completa" selected>Academia completa</option>
+            <option value="halteres e banco em casa">Halteres + banco (casa)</option>
+            <option value="halteres, barra e anilhas">Halteres, barra e anilhas</option>
+            <option value="máquinas e cabos">Máquinas e cabos</option>
+            <option value="peso corporal e elásticos">Peso corporal e elásticos</option>
+          </select>
+        </label>
+
+        <label class="field field-wide checkbox-field">
+          <input type="checkbox" id="aerobico" />
+          <span>Incluir orientação de aeróbico</span>
+        </label>
+
+        <label class="field field-wide">
+          <span class="field-label">Lesões, dores ou condições médicas (opcional)</span>
+          <textarea id="limitacoes" rows="2" placeholder="Ex.: dor no ombro direito ao pressionar acima da cabeça; osteoartrite no joelho; hipertensão controlada..."></textarea>
+        </label>
+
+        <label class="field field-wide">
+          <span class="field-label">Observações extras (opcional)</span>
+          <textarea id="observacoes" rows="2" placeholder="Ex.: quero ênfase em peito e braços; prefiro máquinas; tenho pouca mobilidade de tornozelo..."></textarea>
+        </label>
+
+        <div class="field field-wide checkbox-field">
+          <input type="checkbox" id="usarHistorico" checked />
+          <span>Usar meu diário de treino para ciclar exercícios e progredir a carga</span>
+        </div>
+
+        <div class="form-actions field-wide">
+          <button type="submit" class="btn btn-primary" id="genBtn">Gerar treino</button>
+          <button type="button" class="btn btn-ghost" id="stopBtn" hidden>Parar</button>
+        </div>
+      </form>
+
+      <div id="genStatus" class="gen-status" hidden></div>
+
+      <details class="reasoning" id="reasoningBox" hidden>
+        <summary>🧠 Raciocínio do Dr. Força (resumo)</summary>
+        <div class="reasoning-body markdown" id="reasoningOut"></div>
+      </details>
+
+      <article class="card output markdown" id="output" hidden></article>
+
+      <div class="output-actions" id="outputActions" hidden>
+        <button class="btn btn-secondary" id="savePlanBtn">💾 Salvar no histórico</button>
+        <button class="btn btn-ghost" id="copyPlanBtn">Copiar</button>
+      </div>
+    </section>
+
+    <!-- ---------- ABA: HISTÓRICO ---------- -->
+    <section class="panel" data-panel="historico">
+      <div class="panel-head">
+        <h2>Histórico de planos gerados</h2>
+        <button class="btn btn-ghost btn-sm" id="exportPlansBtn">Exportar (JSON)</button>
+      </div>
+      <div id="plansList" class="stack"></div>
+      <p class="empty" id="plansEmpty">Nenhum plano salvo ainda. Gere um treino e clique em “Salvar no histórico”.</p>
+    </section>
+
+    <!-- ---------- ABA: DIÁRIO ---------- -->
+    <section class="panel" data-panel="diario">
+      <div class="panel-head">
+        <h2>Diário de treino</h2>
+        <button class="btn btn-ghost btn-sm" id="exportLogsBtn">Exportar (CSV)</button>
+      </div>
+      <p class="panel-intro">Registre cada sessão realizada. O Dr. Força usa esses registros para <strong>ciclar exercícios e estímulos</strong> e aplicar sobrecarga progressiva no próximo plano.</p>
+
+      <form id="logForm" class="card form-grid">
+        <label class="field">
+          <span class="field-label">Data</span>
+          <input type="date" id="logData" />
+        </label>
+        <label class="field">
+          <span class="field-label">Treino / Dia</span>
+          <input type="text" id="logTreino" placeholder="Ex.: Treino A — Peito e Tríceps" />
+        </label>
+        <label class="field field-wide">
+          <span class="field-label">Exercícios realizados (um por linha: exercício — séries x reps x carga — RIR/obs)</span>
+          <textarea id="logExercicios" rows="5" placeholder="Supino máquina — 3x10x40kg — 2 RIR&#10;Crucifixo cabo — 3x12x15kg — 1 RIR&#10;Tríceps corda — 3x15x25kg"></textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">RPE geral da sessão (1–10)</span>
+          <input type="number" id="logRpe" min="1" max="10" step="0.5" placeholder="7" />
+        </label>
+        <label class="field field-wide">
+          <span class="field-label">Observações (dor, energia, sono...)</span>
+          <textarea id="logObs" rows="2" placeholder="Ombro sem dor hoje; energia boa; dormi 7h."></textarea>
+        </label>
+        <div class="form-actions field-wide">
+          <button type="submit" class="btn btn-primary">Registrar sessão</button>
+        </div>
+      </form>
+
+      <div id="logsList" class="stack"></div>
+      <p class="empty" id="logsEmpty">Nenhuma sessão registrada ainda.</p>
+    </section>
+
+    <!-- ================= REFERÊNCIAS ================= -->
+    <footer class="refs">
+      <h2>Base científica</h2>
+      <ul>
+        <li><a href="fragala-2019-nsca-position-statement.pdf" target="_blank" rel="noopener">Fragala et al., 2019</a> — <em>Resistance Training for Older Adults: Position Statement</em> (NSCA, J Strength Cond Res).</li>
+        <li><a href="lixandrao-2024-volume-hypertrophy-older.pdf" target="_blank" rel="noopener">Lixandrão et al., 2024</a> — <em>Higher resistance training volume offsets muscle hypertrophy nonresponsiveness in older individuals</em> (J Appl Physiol).</li>
+        <li><a href="centner-2019-bfr-older-adults.pdf" target="_blank" rel="noopener">Centner et al., 2019</a> — <em>Effects of Blood Flow Restriction Training on Muscular Strength and Hypertrophy in Older Individuals</em> (Sports Medicine).</li>
+      </ul>
+      <p class="disclaimer">Ferramenta de uso pessoal e educativo. Não substitui avaliação médica ou acompanhamento presencial de um profissional de Educação Física.</p>
+    </footer>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
